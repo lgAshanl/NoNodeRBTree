@@ -231,11 +231,6 @@ namespace RBTree
             }
 
             assert(node->m_key == key);
-            if (8 == key)
-            {
-                int a = 9;
-                (void)a;
-            }
 
             if ((nullptr != node->m_left) && (nullptr != node->m_right))
             {
