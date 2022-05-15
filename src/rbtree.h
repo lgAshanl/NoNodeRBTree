@@ -32,6 +32,8 @@ namespace RBTree
         // TODO: by iterator
         size_t erase(K key) noexcept;
 
+        iterator erase(iterator iter) noexcept;
+
         void clear() noexcept;
 
         void clearWithDestruct() noexcept;
@@ -139,6 +141,11 @@ namespace RBTree
     template<class K, class V>
     typename NoNodeRBTree<K, V>::iterator NoNodeRBTree<K, V>::find(K key) noexcept
     {
+        if (nullptr == m_root)
+        {
+            return end();
+        }
+
         V node = m_root;
         while (key != node->m_key)
         {
@@ -170,42 +177,117 @@ namespace RBTree
             ++m_size;
             return std::pair<iterator, bool>(iterator(value), true);
         }
-        else
+
+        V node = m_root;
+        while (true)
         {
-            V node = m_root;
-            while (true)
-            {
-                if (key == node->m_key)
-                    return std::pair<iterator, bool>(iterator(node), false);
+            if (key == node->m_key)
+                return std::pair<iterator, bool>(iterator(node), false);
 
-                V const next = pure((key > node->m_key) ? node->m_right : node->m_left);
+            V const next = pure((key > node->m_key) ? node->m_right : node->m_left);
 
-                if (nullptr == next)
-                        break;
-                else
-                    node = next;
-            }
-
-            if (key > node->m_key)
-                node->m_right = value;
+            if (nullptr == next)
+                break;
             else
-                node->m_left = value;
+                node = next;
+        }
 
-            value->m_parent = red(node);
-            value->m_key = key;
-            value->m_left = nullptr;
-            value->m_right = nullptr;
-            ++m_size;
+        if (key > node->m_key)
+            node->m_right = value;
+        else
+            node->m_left = value;
 
-            if (is_node_black(node))
+        value->m_parent = red(node);
+        value->m_key = key;
+        value->m_left = nullptr;
+        value->m_right = nullptr;
+        ++m_size;
+        const iterator result_iterator = iterator(value);
+
+        if (is_node_black(node))
+        {
+            return std::pair<iterator, bool>(result_iterator, true);
+        }
+
+        // repair
+        V parent = node;
+        node = value;
+
+        // grandfather definitely exists and is black (parent is red)
+        V grandpa = pure(parent->m_parent);
+        V uncle = pure((pure(grandpa->m_left) == parent) ? grandpa->m_right : grandpa->m_left);
+        //while (is_ptr_red(uncle))
+        while ((nullptr != uncle) && is_node_red(uncle))
+        {
+            parent->m_parent = grandpa; // black
+            uncle->m_parent = grandpa; // black
+
+            if (nullptr == grandpa->m_parent)
             {
-                return std::pair<iterator, bool>(iterator(value), true);
+                return std::pair<iterator, bool>(result_iterator, true);
             }
 
-            repairInsert(node, value);
+            V const grandgrandpa = pure(grandpa->m_parent);
+            grandpa->m_parent = red(grandgrandpa);
 
-            return std::pair<iterator, bool>(iterator(value), true);
+            if (is_node_black(grandgrandpa))
+            {
+                return std::pair<iterator, bool>(result_iterator, true);
+            }
+
+            parent = grandgrandpa;
+            node = grandpa;
+            grandpa = pure(grandgrandpa->m_parent);
+            uncle = pure((pure(grandpa->m_left) == parent) ? grandpa->m_right : grandpa->m_left);
         }
+
+        // uncle is black
+        if (pure(parent->m_right) == node && pure(grandpa->m_left) == parent)
+        {
+            pred_rotate(parent, node, grandpa);
+            rotate_left(parent, node);
+            node->m_parent = red(node->m_parent);
+            //parent->m_parent = red(parent->m_parent);
+            std::swap(parent, node);
+        }
+        else if (pure(parent->m_left) == node && pure(grandpa->m_right) == parent)
+        {
+            pred_rotate(parent, node, grandpa);
+            rotate_right(parent, node);
+            node->m_parent = red(node->m_parent);
+            //parent->m_parent = red(parent->m_parent);
+            std::swap(parent, node);
+        }
+
+        // case 5 (cascade)
+        //pred_rotate(grandpa, parent, grandgrandpa);
+        {
+            assert(is_node_black(grandpa));
+            V const grandgrandpa = grandpa->m_parent; // pure (black)
+            parent->m_parent = grandgrandpa;
+            if (nullptr != grandgrandpa)
+            {
+                if (pure(grandgrandpa->m_left) == grandpa)
+                    grandgrandpa->m_left = parent;
+                else
+                    grandgrandpa->m_right = parent;
+            }
+            else
+            {
+                if (m_root == grandpa)
+                    m_root = parent;
+            }
+        }
+        if (pure(parent->m_left) == node) // && pure(grandpa->m_left) == parent)
+        {
+            rotate_right(grandpa, parent);
+        }
+        else // pure(parent->m_right) == node) && pure(grandpa->m_right) == parent)
+        {
+            rotate_left(grandpa, parent);
+        }
+
+        return std::pair<iterator, bool>(result_iterator, true);
     }
 
     //--------------------------------------------------------------//
@@ -213,97 +295,247 @@ namespace RBTree
     template<class K, class V>
     size_t NoNodeRBTree<K, V>::erase(K key) noexcept
     {
-        if (nullptr == m_root)
-        {
+        iterator iter = find(key);
+        if (nullptr == iter.m_node)
             return 0;
+
+        assert(iter.m_node->m_key == key);
+        erase(iter);
+
+        return 1;
+    }
+
+    //--------------------------------------------------------------//
+
+    template<class K, class V>
+    typename NoNodeRBTree<K, V>::iterator NoNodeRBTree<K, V>::erase(iterator iter) noexcept
+    {
+        if (nullptr == iter.m_node)
+            return iter;
+
+        assert(nullptr != m_root);
+        --m_size;
+        
+        const iterator next_iter = iterator(next(iter.m_node));
+        V node = iter.m_node;
+        if ((nullptr != node->m_left) && (nullptr != node->m_right))
+        {
+            V min_right = maxLeft(pure(node->m_right));
+            if (nullptr == node->m_parent)
+                m_root = min_right;
+
+            erase_swap(node, min_right);
+        }
+
+        V parent = pure(node->m_parent);
+        if (is_node_red(node))
+        {
+            assert((nullptr == node->m_left) && (nullptr == node->m_right));
+            if (node == parent->m_left)
+                parent->m_left = nullptr;
+            else
+                parent->m_right = nullptr;
+
+            return next_iter;
+        }
+
+        V child = (nullptr != node->m_left) ? node->m_left : node->m_right;
+
+        if (nullptr != child) //if (is_node_red(child))
+        {
+            assert(is_node_red(child));
+            if (nullptr != parent)
+            {
+                if (node == parent->m_left)
+                    parent->m_left = child;
+                else
+                    parent->m_right = child;
+            }
+            else
+            {
+                m_root = child;
+            }
+            child->m_parent = parent; // black
+
+            return next_iter;
+        }
+
+        assert((nullptr == node->m_left) && (nullptr == node->m_right));
+        assert(nullptr == child);
+
+        // case 1
+        if (nullptr == parent) //(m_root == node)
+        {
+            m_root = nullptr;
+            assert(0 == m_size);
+            return next_iter;
+        }
+
+        if (node == parent->m_left)
+            parent->m_left = child;
+        else
+            parent->m_right = child;
+
+        // repair
+        V brother = (nullptr == parent->m_left) ? parent->m_right : parent->m_left;
+        while (true)
+        {
+            // case 2
+            if (is_node_red(brother))
+            {
+                assert(is_node_black(parent));
+
+                V grandpa = pure(parent->m_parent);
+                brother->m_parent = grandpa;
+                if (nullptr != grandpa)
+                {
+                    if (pure(grandpa->m_left) == parent)
+                        grandpa->m_left = brother;
+                    else
+                        grandpa->m_right = brother;
+                }
+                else
+                {
+                    m_root = brother;
+                }
+
+                if (brother == parent->m_right)
+                {
+                    rotate_left(parent, brother);
+                    assert(is_node_black(brother));
+                    brother = parent->m_right;
+                }
+                else
+                {
+                    rotate_right(parent, brother);
+                    assert(is_node_black(brother));
+                    brother = parent->m_left;
+                }
+
+                // post
+                assert(is_node_red(parent));
+            }
+            assert(is_node_black(brother));
+
+            const bool is_childs_black = isChildsBlack(brother);
+            if (!is_childs_black)
+            {
+                break;
+            }
+
+            if (is_node_black(parent))
+            {
+                // case 3
+                brother->m_parent = red(brother->m_parent);
+
+                const V grandpa = pure(parent->m_parent);
+                if (nullptr == grandpa)
+                {
+                    return next_iter;
+                }
+
+                brother = (parent == grandpa->m_left) ? grandpa->m_right : grandpa->m_left;
+
+                parent = grandpa;
+            }
+            else
+            {
+                // case 4
+                assert(is_node_red(parent));
+                brother->m_parent = red(brother->m_parent);
+                parent->m_parent = black(parent->m_parent);
+                return next_iter;
+            }
+        }
+
+        const size_t old_parent_color = color(parent);
+        V left_brother_child = pure(brother->m_left);
+        V right_brother_child = pure(brother->m_right);
+        if (brother == parent->m_right)
+        {
+            // case 5
+            if (nullptr == right_brother_child || is_node_black(right_brother_child))
+            {
+                assert(is_node_red(brother->m_left));
+
+                pred_rotate(brother, left_brother_child, parent);
+
+                rotate_right(brother, left_brother_child);
+
+                brother = left_brother_child;
+            }
+            assert(is_node_black(brother));
+            assert(is_node_red(brother->m_right));
+
+            // case 6
+            {
+                const V grandpa = pure(parent->m_parent);
+                brother->m_parent = (V)((size_t)grandpa | old_parent_color);
+                if (nullptr != grandpa)
+                {
+                    if (pure(grandpa->m_left) == parent)
+                        grandpa->m_left = brother;
+                    else
+                        grandpa->m_right = brother;
+                }
+                else
+                {
+                    m_root = brother;
+                }
+            }
+            
+            parent->m_right = brother->m_left;
+            if (nullptr != brother->m_left)
+                set_parent_save_color(brother->m_left, parent);
+
+            parent->m_parent = brother; // black
+            brother->m_left = parent;
+            brother->m_right->m_parent = black(brother->m_right->m_parent);
         }
         else
         {
-            V node = m_root;
-            while (key != node->m_key)
+            V right_brother_child = pure(brother->m_right);
+            // case 5
+            if (nullptr == left_brother_child || is_node_black(left_brother_child))
             {
-                V const next = pure((key > node->m_key) ? node->m_right : node->m_left);
+                assert(is_node_red(brother->m_right));
 
-                if (nullptr == next)
-                    return 0;
-                else
-                    node = next;
+                pred_rotate(brother, right_brother_child, parent);
+
+                rotate_left(brother, right_brother_child);
+
+                brother = right_brother_child;
             }
+            assert(is_node_black(brother));
+            assert(is_node_red(brother->m_left));
 
-            assert(node->m_key == key);
-
-            if ((nullptr != node->m_left) && (nullptr != node->m_right))
+            // case 6
             {
-                V min_right = maxLeft(pure(node->m_right));
-                if (nullptr == node->m_parent)
-                    m_root = min_right;
-
-                erase_swap(node, min_right);
-
-            }
-
-            const V parent = pure(node->m_parent);
-            if (is_node_red(node))
-            {
-                assert((nullptr == node->m_left) && (nullptr == node->m_right));
-                if (node == parent->m_left)
-                    parent->m_left = nullptr;
-                else
-                    parent->m_right = nullptr;
-
-                --m_size;
-
-                return 1;
-            }
-
-            V child = (nullptr != node->m_left) ? node->m_left : node->m_right;
-
-            if (nullptr != child) //if (is_node_red(child))
-            {
-                assert(is_node_red(child));
-                if (nullptr != parent)
+                const V grandpa = pure(parent->m_parent);
+                brother->m_parent = (V)((size_t)grandpa | old_parent_color);
+                if (nullptr != grandpa)
                 {
-                    if (node == parent->m_left)
-                        parent->m_left = child;
+                    if (pure(grandpa->m_left) == parent)
+                        grandpa->m_left = brother;
                     else
-                        parent->m_right = child;
+                        grandpa->m_right = brother;
                 }
                 else
                 {
-                    m_root = child;
+                    m_root = brother;
                 }
-                child->m_parent = parent; // black
-
-                --m_size;
-
-                return 1;
             }
+            
+            parent->m_left = brother->m_right;
+            if (nullptr != brother->m_right)
+                set_parent_save_color(brother->m_right, parent);
 
-            assert((nullptr == node->m_left) && (nullptr == node->m_right));
-            assert(nullptr == child);
-
-            // case 1
-            if (nullptr == parent) //(m_root == node)
-            {
-                m_root = nullptr;
-                --m_size;
-                return 1;
-            }
-
-            if (node == parent->m_left)
-                parent->m_left = child;
-            else
-                parent->m_right = child;
-
-            // repair
-
-            V brother = (nullptr == parent->m_left) ? parent->m_right : parent->m_left;
-            repairErase(parent, brother);
-
-            --m_size;
-
-            return 1;
+            parent->m_parent = brother; // black
+            brother->m_right = parent;
+            brother->m_left->m_parent = black(brother->m_left->m_parent);
         }
+
+        return next_iter;
     }
 
     //--------------------------------------------------------------//
@@ -434,164 +666,6 @@ namespace RBTree
         {
             rotate_left(grandpa, parent);
         }
-    }
-
-    template<class K, class V>
-    void NoNodeRBTree<K, V>::repairErase(V parent, V brother) noexcept
-    {
-        assert(nullptr != parent);
-        assert(nullptr != brother);
-        assert_pure(parent);
-        assert_pure(brother);
-
-        // case 2
-        if (is_node_red(brother))
-        {
-            assert(is_node_black(parent));
-
-            V grandpa = pure(parent->m_parent);
-            brother->m_parent = grandpa;
-            if (nullptr != grandpa)
-            {
-                if (pure(grandpa->m_left) == parent)
-                    grandpa->m_left = brother;
-                else
-                    grandpa->m_right = brother;
-            }
-            else
-            {
-                m_root = brother;
-            }
-
-            if (brother == parent->m_right)
-            {
-                rotate_left(parent, brother);
-                assert(is_node_black(brother));
-                brother = parent->m_right;
-            }
-            else
-            {
-                rotate_right(parent, brother);
-                assert(is_node_black(brother));
-                brother = parent->m_left;
-            }
-
-            // post
-            assert(is_node_red(parent));
-        }
-        assert(is_node_black(brother));
-
-        // case 3
-        const bool is_childs_black = isChildsBlack(brother);
-        if (is_node_black(parent) && is_childs_black)
-        {
-            brother->m_parent = red(brother->m_parent);
-
-            const V grandpa = pure(parent->m_parent);
-            if (nullptr == grandpa)
-            {
-                return;
-            }
-
-            brother = (parent == grandpa->m_left) ? grandpa->m_right : grandpa->m_left;
-
-            return repairErase(grandpa, brother);
-        }
-
-        // case 4
-        if (is_node_red(parent) && is_childs_black)
-        {
-            brother->m_parent = red(brother->m_parent);
-            parent->m_parent = black(parent->m_parent);
-            return;
-        }
-
-        const size_t old_parent_color = color(parent);
-        V left_brother_child = pure(brother->m_left);
-        V right_brother_child = pure(brother->m_right);
-        if (brother == parent->m_right)
-        {
-            // case 5
-            if (nullptr == right_brother_child || is_node_black(right_brother_child))
-            {
-                assert(is_node_red(brother->m_left));
-
-                pred_rotate(brother, left_brother_child, parent);
-
-                rotate_right(brother, left_brother_child);
-
-                brother = left_brother_child;
-            }
-            assert(is_node_black(brother));
-            assert(is_node_red(brother->m_right));
-
-            // case 6
-            {
-                const V grandpa = pure(parent->m_parent);
-                brother->m_parent = (V)((size_t)grandpa | old_parent_color);
-                if (nullptr != grandpa)
-                {
-                    if (pure(grandpa->m_left) == parent)
-                        grandpa->m_left = brother;
-                    else
-                        grandpa->m_right = brother;
-                }
-                else
-                {
-                    m_root = brother;
-                }
-            }
-            
-            parent->m_right = brother->m_left;
-            if (nullptr != brother->m_left)
-                set_parent_save_color(brother->m_left, parent);
-
-            parent->m_parent = brother; // black
-            brother->m_left = parent;
-            brother->m_right->m_parent = black(brother->m_right->m_parent);
-        }
-        else
-        {
-            V right_brother_child = pure(brother->m_right);
-            // case 5
-            if (nullptr == left_brother_child || is_node_black(left_brother_child))
-            {
-                assert(is_node_red(brother->m_right));
-
-                pred_rotate(brother, right_brother_child, parent);
-
-                rotate_left(brother, right_brother_child);
-
-                brother = right_brother_child;
-            }
-            assert(is_node_black(brother));
-            assert(is_node_red(brother->m_left));
-
-            // case 6
-            {
-                const V grandpa = pure(parent->m_parent);
-                brother->m_parent = (V)((size_t)grandpa | old_parent_color);
-                if (nullptr != grandpa)
-                {
-                    if (pure(grandpa->m_left) == parent)
-                        grandpa->m_left = brother;
-                    else
-                        grandpa->m_right = brother;
-                }
-                else
-                {
-                    m_root = brother;
-                }
-            }
-            
-            parent->m_left = brother->m_right;
-            if (nullptr != brother->m_right)
-                set_parent_save_color(brother->m_right, parent);
-
-            parent->m_parent = brother; // black
-            brother->m_right = parent;
-            brother->m_left->m_parent = black(brother->m_left->m_parent);
-        }   
     }
 
     //--------------------------------------------------------------//

@@ -390,7 +390,7 @@ namespace Test
     {
         constexpr uint32_t sample_size = 10;
         constexpr uint32_t niterations = 10000;
-        constexpr uint32_t nthreads = 1;
+        constexpr uint32_t nthreads = 12;
 
         TestBox tb;
         tb.run(AddTestGenerator, sample_size, niterations, nthreads);
@@ -402,7 +402,7 @@ namespace Test
     {
         constexpr uint32_t sample_size = 64;
         constexpr uint32_t niterations = 1000;
-        constexpr uint32_t nthreads = 1;
+        constexpr uint32_t nthreads = 12;
 
         TestBox tb;
         tb.run(AddTestGenerator, sample_size, niterations, nthreads);
@@ -449,7 +449,7 @@ namespace Test
     {
         constexpr uint32_t sample_size = 20;
         constexpr uint32_t niterations = 10000;
-        constexpr uint32_t nthreads = 1;
+        constexpr uint32_t nthreads = 12;
 
         TestBox tb;
         tb.run(AddRemoveTestGenerator, sample_size, niterations, nthreads);
@@ -461,7 +461,7 @@ namespace Test
     {
         constexpr uint32_t sample_size = 10000;
         constexpr uint32_t niterations = 10;
-        constexpr uint32_t nthreads = 1;
+        constexpr uint32_t nthreads = 12;
 
         TestBox tb;
         tb.run(AddRemoveTestGenerator, sample_size, niterations, nthreads);
