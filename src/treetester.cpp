@@ -345,7 +345,7 @@ namespace Test
     {
         if (cmd.m_is_add)
         {
-            return map.insert(cmd.m_key, values[cmd.m_key]).second;
+            return map.emplace(cmd.m_key, values[cmd.m_key]).second;
         }
         else
         {

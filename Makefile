@@ -19,5 +19,8 @@ test:
 testrelease:
 	clang++ -o test.out $(SRC) $(CFLAGS) $(RELFLAGS) $(LDFLAGS)
 
+testrwd:
+	clang++ -o test.out $(SRC) $(CFLAGS) $(RELFLAGS) $(LDFLAGS) -g
+
 clean:
 	rm test.out
