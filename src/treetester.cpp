@@ -303,7 +303,7 @@ namespace Test
     TEST(TreeTest, brut_add_small_sample)
     {
         constexpr uint32_t sample_size = 10;
-        constexpr uint32_t niterations = 10000;
+        constexpr uint32_t niterations = 30000;
         constexpr uint32_t nthreads = 12;
 
         TestBox tb;
@@ -315,7 +315,7 @@ namespace Test
     TEST(TreeTest, brut_add_max_sample)
     {
         constexpr uint32_t sample_size = 64;
-        constexpr uint32_t niterations = 1000;
+        constexpr uint32_t niterations = 10000;
         constexpr uint32_t nthreads = 12;
 
         TestBox tb;
@@ -324,23 +324,10 @@ namespace Test
 
     //////////////////////////////////////////////////////////////////
 
-    TEST(TreeTest, brut_add_remove_manual)
-    {
-        GTEST_SKIP();
-        constexpr uint32_t sample_size = 100000;
-        constexpr uint32_t niterations = 10000;
-        constexpr uint32_t nthreads = 16;
-
-        TestBox tb;
-        tb.run(AddRemoveTestGenerator, sample_size, niterations, nthreads);
-    }
-
-    //--------------------------------------------------------------//
-
     TEST(TreeTest, brut_add_remove_small_sample)
     {
         constexpr uint32_t sample_size = 20;
-        constexpr uint32_t niterations = 10000;
+        constexpr uint32_t niterations = 30000;
         constexpr uint32_t nthreads = 12;
 
         TestBox tb;
@@ -352,8 +339,21 @@ namespace Test
     TEST(TreeTest, brut_add_remove_big_sample)
     {
         constexpr uint32_t sample_size = 10000;
-        constexpr uint32_t niterations = 10;
+        constexpr uint32_t niterations = 100;
         constexpr uint32_t nthreads = 12;
+
+        TestBox tb;
+        tb.run(AddRemoveTestGenerator, sample_size, niterations, nthreads);
+    }
+
+    //--------------------------------------------------------------//
+
+    TEST(TreeTest, brut_add_remove_manual)
+    {
+        GTEST_SKIP();
+        constexpr uint32_t sample_size = 100000;
+        constexpr uint32_t niterations = 10000;
+        constexpr uint32_t nthreads = 16;
 
         TestBox tb;
         tb.run(AddRemoveTestGenerator, sample_size, niterations, nthreads);
@@ -519,4 +519,13 @@ namespace Test
     }
 
     //--------------------------------------------------------------//
+
+    TEST(TreeTest, check)
+    {
+        std::map<key_t, float> stdmap;
+        stdmap.insert({3, 5});
+        auto x = stdmap.begin();
+        (void)x;
+
+    }
 }

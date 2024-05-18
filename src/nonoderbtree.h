@@ -13,25 +13,24 @@ namespace RBTree
         // Y - color (0 - black, 1 - red)
 
         using value_t = V;
+        static_assert(std::is_pointer<V>(), "");
 
     public:
 
         class iterator;
 
-        NoNodeRBTree()
-          : m_root(nullptr), m_size(0)
-        { }
+        NoNodeRBTree();
 
         NoNodeRBTree(const NoNodeRBTree& other) = delete;
         NoNodeRBTree(NoNodeRBTree&& other) noexcept = delete;
         NoNodeRBTree& operator=(const NoNodeRBTree& other) = delete;
         NoNodeRBTree& operator=(NoNodeRBTree&& other) noexcept = delete;
 
-        iterator find(K key) noexcept;
+        iterator find(const K& key) noexcept;
 
         std::pair<iterator, bool> insert(V value) noexcept;
 
-        size_t erase(K key) noexcept;
+        size_t erase(const K& key) noexcept;
 
         iterator erase(iterator iter) noexcept;
 
@@ -41,15 +40,9 @@ namespace RBTree
 
         size_t size() const noexcept;
 
-    private:
-
-        void repairInsert(V parent, V node) noexcept;
-
-        void repairErase(V parent, V brother) noexcept;
-
     public:
 
-        class iterator  : public std::iterator<std::input_iterator_tag, V> {
+        class iterator : public std::iterator<std::input_iterator_tag, V> {
             friend class NoNodeRBTree<K, V>;
 
             iterator(V node) : m_node(node) { }
@@ -139,7 +132,13 @@ namespace RBTree
 
     //--------------------------------------------------------------//
     template<class K, class V>
-    typename NoNodeRBTree<K, V>::iterator NoNodeRBTree<K, V>::find(K key) noexcept
+    NoNodeRBTree<K, V>::NoNodeRBTree()
+      : m_root(nullptr), m_size(0)
+    { }
+
+    //--------------------------------------------------------------//
+    template<class K, class V>
+    typename NoNodeRBTree<K, V>::iterator NoNodeRBTree<K, V>::find(const K& key) noexcept
     {
         if (nullptr == m_root)
         {
@@ -147,14 +146,34 @@ namespace RBTree
         }
 
         V node = m_root;
-        while (key != node->m_key)
+        if constexpr (noexcept(key != node->m_key) &&
+                      noexcept(key < node->m_key))
         {
-            V const next = pure((key > node->m_key) ? node->m_right : node->m_left);
+            while (key != node->m_key)
+            {
+                node = pure((key < node->m_key) ? node->m_left : node->m_right);
 
-            if (nullptr == next)
+                if (nullptr == node)
+                    return end();
+            }
+        }
+        else
+        {
+            assert(false);
+            try
+            {
+                while (key != node->m_key)
+                {
+                    node = pure((key < node->m_key) ? node->m_left : node->m_right);
+
+                    if (nullptr == next)
+                        return end();
+                }
+            }
+            catch (...)
+            {
                 return end();
-            else
-                node = next;
+            }
         }
 
         return iterator(node);
@@ -164,12 +183,11 @@ namespace RBTree
     template<class K, class V>
     std::pair<typename NoNodeRBTree<K, V>::iterator, bool> NoNodeRBTree<K, V>::insert(V const value) noexcept
     {
-        const K key = value->m_key;
+        const K& key = value->m_key;
 
         if (nullptr == m_root)
         {
             m_root = value;
-            value->m_key = key;
             value->m_left = nullptr;
             value->m_right = nullptr;
             value->m_parent = nullptr;
@@ -180,10 +198,11 @@ namespace RBTree
         V node = m_root;
         while (true)
         {
+            // TODO: except
             if (key == node->m_key)
                 return std::pair<iterator, bool>(iterator(node), false);
 
-            V const next = pure((key > node->m_key) ? node->m_right : node->m_left);
+            V const next = pure((key < node->m_key) ? node->m_left : node->m_right);
 
             if (nullptr == next)
                 break;
@@ -191,10 +210,11 @@ namespace RBTree
                 node = next;
         }
 
-        if (key > node->m_key)
-            node->m_right = value;
-        else
+        // TODO: except
+        if (key < node->m_key)
             node->m_left = value;
+        else
+            node->m_right = value;
 
         value->m_parent = red(node);
         value->m_key = key;
@@ -218,6 +238,7 @@ namespace RBTree
         //while (is_ptr_red(uncle))
         while ((nullptr != uncle) && is_node_red(uncle))
         {
+            assert(nullptr != grandpa && is_node_black(grandpa));
             parent->m_parent = grandpa; // black
             uncle->m_parent = grandpa; // black
 
@@ -273,8 +294,8 @@ namespace RBTree
             }
             else
             {
-                if (m_root == grandpa)
-                    m_root = parent;
+                assert(grandpa == m_root);
+                m_root = parent;
             }
         }
         if (pure(parent->m_left) == node) // && pure(grandpa->m_left) == parent)
@@ -291,7 +312,7 @@ namespace RBTree
 
     //--------------------------------------------------------------//
     template<class K, class V>
-    size_t NoNodeRBTree<K, V>::erase(K key) noexcept
+    size_t NoNodeRBTree<K, V>::erase(const K& key) noexcept
     {
         iterator iter = find(key);
         if (nullptr == iter.m_node)
@@ -317,7 +338,7 @@ namespace RBTree
         V node = iter.m_node;
         if ((nullptr != node->m_left) && (nullptr != node->m_right))
         {
-            V min_right = maxLeft(pure(node->m_right));
+            V const min_right = maxLeft(pure(node->m_right));
             if (nullptr == node->m_parent)
                 m_root = min_right;
 
@@ -336,7 +357,7 @@ namespace RBTree
             return next_iter;
         }
 
-        V child = (nullptr != node->m_left) ? node->m_left : node->m_right;
+        V const child = (nullptr != node->m_left) ? node->m_left : node->m_right;
 
         if (nullptr != child) //if (is_node_red(child))
         {
@@ -369,20 +390,22 @@ namespace RBTree
         }
 
         if (node == parent->m_left)
-            parent->m_left = child;
+            parent->m_left = nullptr;
         else
-            parent->m_right = child;
+            parent->m_right = nullptr;
 
         // repair
         V brother = (nullptr == parent->m_left) ? parent->m_right : parent->m_left;
         while (true)
         {
+            assert(nullptr != brother);
+
             // case 2
             if (is_node_red(brother))
             {
                 assert(is_node_black(parent));
 
-                V grandpa = pure(parent->m_parent);
+                V const grandpa = pure(parent->m_parent);
                 brother->m_parent = grandpa;
                 if (nullptr != grandpa)
                 {
@@ -425,7 +448,7 @@ namespace RBTree
                 // case 3
                 brother->m_parent = red(brother->m_parent);
 
-                const V grandpa = pure(parent->m_parent);
+                V const grandpa = pure(parent->m_parent);
                 if (nullptr == grandpa)
                 {
                     return next_iter;
@@ -584,85 +607,6 @@ namespace RBTree
 
     //--------------------------------------------------------------//
     template<class K, class V>
-    void NoNodeRBTree<K, V>::repairInsert(V parent, V node) noexcept
-    {
-        // grandfather definitely exists and is black (parent is red)
-        V grandpa = pure(parent->m_parent);
-        V uncle = pure((pure(grandpa->m_left) == parent) ? grandpa->m_right : grandpa->m_left);
-        //while (is_ptr_red(uncle))
-        while ((nullptr != uncle) && is_node_red(uncle))
-        {
-            parent->m_parent = grandpa; // black
-            uncle->m_parent = grandpa; // black
-
-            if (nullptr == grandpa->m_parent)
-            {
-                return;
-            }
-
-            V const grandgrandpa = pure(grandpa->m_parent);
-            grandpa->m_parent = red(grandgrandpa);
-
-            if (is_node_black(grandgrandpa))
-            {
-                return;
-            }
-
-            parent = grandgrandpa;
-            node = grandpa;
-            grandpa = pure(grandgrandpa->m_parent);
-            uncle = pure((pure(grandpa->m_left) == parent) ? grandpa->m_right : grandpa->m_left);
-        }
-
-        // uncle is black
-        if (pure(parent->m_right) == node && pure(grandpa->m_left) == parent)
-        {
-            pred_rotate(parent, node, grandpa);
-            rotate_left(parent, node);
-            node->m_parent = red(node->m_parent);
-            //parent->m_parent = red(parent->m_parent);
-            std::swap(parent, node);
-        }
-        else if (pure(parent->m_left) == node && pure(grandpa->m_right) == parent)
-        {
-            pred_rotate(parent, node, grandpa);
-            rotate_right(parent, node);
-            node->m_parent = red(node->m_parent);
-            //parent->m_parent = red(parent->m_parent);
-            std::swap(parent, node);
-        }
-
-        // case 5 (cascade)
-        //pred_rotate(grandpa, parent, grandgrandpa);
-        {
-            assert(is_node_black(grandpa));
-            V const grandgrandpa = grandpa->m_parent; // pure (black)
-            parent->m_parent = grandgrandpa;
-            if (nullptr != grandgrandpa)
-            {
-                if (pure(grandgrandpa->m_left) == grandpa)
-                    grandgrandpa->m_left = parent;
-                else
-                    grandgrandpa->m_right = parent;
-            }
-            else
-            {
-                if (m_root == grandpa)
-                    m_root = parent;
-            }
-        }
-        if (pure(parent->m_left) == node) // && pure(grandpa->m_left) == parent)
-        {
-            rotate_right(grandpa, parent);
-        }
-        else // pure(parent->m_right) == node) && pure(grandpa->m_right) == parent)
-        {
-            rotate_left(grandpa, parent);
-        }
-    }
-
-    //--------------------------------------------------------------//
-    template<class K, class V>
     bool NoNodeRBTree<K, V>::checkRB() noexcept
     {
         if (nullptr == m_root)
@@ -725,6 +669,7 @@ namespace RBTree
             return maxLeft(pure(node->m_right));
         }
 
+        // TODO: except
         V parent = pure(node->m_parent);
         while (nullptr != parent && parent->m_key <= node->m_key)
         {

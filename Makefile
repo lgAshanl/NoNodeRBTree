@@ -1,7 +1,7 @@
 DBGFLAGS=-g -fsanitize=address -fsanitize=undefined
 RELFLAGS=-O3 -march=native
 
-override CFLAGS :=$(CFLAGS) -std=c++14 -pipe -Wall -Wextra
+override CFLAGS :=$(CFLAGS) -std=c++17 -pipe -Wall -Wextra -Wno-deprecated-declarations
 override LDFLAGS :=$(LDFLAGS) -lgtest -pthread
 
 #-fsanitize=thread

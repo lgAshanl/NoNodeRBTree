@@ -2,7 +2,6 @@
 
 #include "stdint.h"
 #include "nonoderbtree.h"
-//#include <queue>
 
 namespace RBTree
 {
@@ -72,7 +71,6 @@ namespace RBTree
 
         size_t erase(K key);
 
-        // TODO:
         void clear() noexcept;
 
         size_t size() const noexcept;
