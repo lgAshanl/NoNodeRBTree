@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include "common.h"
+#include "testgen.h"
 #include "rbtree.h"
 
 namespace Test
@@ -22,31 +23,6 @@ namespace Test
 
 namespace Test
 {
-    struct TestCommand;
-
-    typedef void (*TestGenerator)(std::vector<TestCommand>& sample, uint32_t sample_size);
-
-    //////////////////////////////////////////////////////////////////
-
-    struct TestCommand
-    {
-        key_t m_key;
-
-        bool m_is_add;
-    };
-
-    //////////////////////////////////////////////////////////////////
-
-    struct TestValue
-    {
-        TestValue* m_left;
-
-        TestValue* m_right;
-
-        TestValue* m_parent;
-
-        key_t m_key;
-    };
 
     //////////////////////////////////////////////////////////////////
 
@@ -84,12 +60,6 @@ namespace Test
 
     private:
 
-        static std::vector<value_t> genValues();
-
-        static void killValues(std::vector<value_t>& values);
-
-    private:
-
         static inline bool execOriginFn(
             std::map<key_t, value_t>& map, const TestCommand& cmd, std::vector<value_t>& values) noexcept;
 
@@ -109,7 +79,7 @@ namespace Test
             treads.emplace_back(
                 [](int32_t id, TestGenerator generator, uint32_t niterations, uint32_t size) -> void
                 {
-                    std::vector<value_t> values = genValues();
+                    std::vector<value_t> values = GenValues<std::remove_pointer_t<value_t>>(NVALUES);
                     std::vector<TestCommand> sample(size, {0, 0});
                     std::vector<std::pair<bool,bool>> returns(size, {0, 0});
 
@@ -158,7 +128,7 @@ namespace Test
                         standard.clear();
                     }
 
-                    killValues(values);
+                    KillValues(values);
                 },
                 i, generator, niterations, sample_size
                 );
@@ -178,7 +148,7 @@ namespace Test
     bool TestBox::run_custom(const std::vector<TestCommand>& sample)
     {
         const size_t size = sample.size();
-        std::vector<value_t> values = genValues();
+        std::vector<value_t> values = GenValues<std::remove_pointer_t<value_t>>(NVALUES);
         std::vector<std::pair<bool,bool>> returns(size, {0, 0});
 
         testedmap_t<key_t, value_t> tested;
@@ -221,7 +191,7 @@ namespace Test
         tested.clear();
         standard.clear();
 
-        killValues(values);
+        KillValues(values);
 
         return true;
     }
@@ -300,31 +270,6 @@ namespace Test
 
     //--------------------------------------------------------------//
 
-    std::vector<value_t> TestBox::genValues()
-    {
-        std::vector<value_t> res;
-        res.reserve(NVALUES);
-
-        for (uint32_t i = 0; i < NVALUES; ++i)
-        {
-            res.emplace_back(new TestValue());
-        }
-
-        return res;
-    }
-
-    //--------------------------------------------------------------//
-
-    void TestBox::killValues(std::vector<value_t>& values)
-    {
-        for (value_t val : values)
-        {
-            delete val;
-        }
-    }
-
-    //--------------------------------------------------------------//
-
     bool TestBox::execOriginFn(
         std::map<key_t, value_t>& map, const TestCommand& cmd, std::vector<value_t>& values) noexcept
     {
@@ -355,37 +300,6 @@ namespace Test
 
     //////////////////////////////////////////////////////////////////
 
-    void AddTestGenerator(std::vector<TestCommand>& sample, uint32_t sample_size)
-    {
-        Rand64 rand;
-
-        uint64_t vector = 0;
-
-        for (uint32_t i = 0; i < sample_size; ++i)
-        {
-            uint32_t key = rand.get();
-            uint64_t shift = (uint64_t)1 << key;
-
-            bool is_in_map = (vector & shift);
-
-            while (is_in_map)
-            {
-                ++key;
-                if (key == 64)
-                    key = 0;
-                shift = (uint64_t)1 << key;
-
-                is_in_map = (vector & shift);
-            }
-
-            sample[i] = {key, !is_in_map};
-
-            vector ^= shift;
-        }
-    }
-
-    //--------------------------------------------------------------//
-
     TEST(TreeTest, brut_add_small_sample)
     {
         constexpr uint32_t sample_size = 10;
@@ -409,28 +323,6 @@ namespace Test
     }
 
     //////////////////////////////////////////////////////////////////
-
-    void AddRemoveTestGenerator(std::vector<TestCommand>& sample, uint32_t sample_size)
-    {
-        //sample.clear();
-        Rand64 rand;
-
-        uint64_t vector = 0;
-
-        for (uint32_t i = 0; i < sample_size; ++i)
-        {
-            const uint32_t key = rand.get();
-            const uint64_t shift = (uint64_t)1 << key;
-
-            const bool is_in_map = (vector & shift);
-
-            sample[i] = {key, !is_in_map};
-
-            vector ^= shift;
-        }
-    }
-
-    //--------------------------------------------------------------//
 
     TEST(TreeTest, brut_add_remove_manual)
     {

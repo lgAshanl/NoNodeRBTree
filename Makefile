@@ -5,9 +5,9 @@ override CFLAGS :=$(CFLAGS) -std=c++14 -pipe -Wall -Wextra
 override LDFLAGS :=$(LDFLAGS) -lgtest -pthread
 
 #-fsanitize=thread
-#address
+#-fsanitize=address -fsanitize=undefined
 
-SRC=./src/test.cpp ./src/treetester.cpp
+SRC=./src/test.cpp ./src/treetester.cpp ./src/bench.cpp
 
 all: build
 	

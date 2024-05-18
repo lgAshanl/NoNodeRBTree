@@ -1,3 +1,5 @@
+#pragma once
+
 #include "stdint.h"
 #include "nonoderbtree.h"
 //#include <queue>
@@ -49,6 +51,9 @@ namespace RBTree
         RBTree()
           : m_tree()
         { }
+
+        ~RBTree()
+        { clear(); }
 
         RBTree(const RBTree& other) = delete;
         RBTree(RBTree&& other) noexcept = delete;
