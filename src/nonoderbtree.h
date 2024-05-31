@@ -28,6 +28,8 @@ namespace RBTree
 
         iterator find(const K& key) noexcept;
 
+        std::pair<iterator, bool> emplace(const K& key, V value);
+
         std::pair<iterator, bool> insert(V value) noexcept;
 
         size_t erase(const K& key) noexcept;
@@ -177,6 +179,16 @@ namespace RBTree
         }
 
         return iterator(node);
+    }
+
+    //--------------------------------------------------------------//
+    template<class K, class V>
+    std::pair<typename NoNodeRBTree<K, V>::iterator, bool> NoNodeRBTree<K, V>::emplace(const K& key, V value)
+    {
+        // TODO: except
+        value->m_key = key;
+
+        return insert(value);
     }
 
     //--------------------------------------------------------------//

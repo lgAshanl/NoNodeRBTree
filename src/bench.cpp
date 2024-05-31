@@ -109,9 +109,7 @@ namespace Test
         BenchBox& operator=(const BenchBox& other) = delete;
         BenchBox& operator=(BenchBox&& other) noexcept = delete;
 
-    public:
-
-        bool run(TestGeneratorBucketed generator, uint32_t sample_size, uint32_t ntreads, uint32_t niterations);
+        bool run(TestGeneratorBucketed generator, uint32_t sample_size, uint32_t nthreads, uint32_t niterations);
 
     };
 
@@ -121,7 +119,7 @@ namespace Test
         uint32_t nthreads, uint32_t niterations)
     {
         std::vector<value_t> values = GenValues<std::remove_pointer<value_t>::type>(sample_size);
-        std::vector<TestCommand> sample(sample_size, {0, 0});
+        std::vector<TestCommand> sample(sample_size, {0, false});
 
         Duration gen_time;
         Duration map_time;
@@ -221,6 +219,38 @@ namespace Test
 
         BenchBox tb;
         tb.run(AddTestGeneratorBucketed, sample_size, nthreads, niterations);
+    }
+
+    //--------------------------------------------------------------//
+
+    TEST(TreeTest, bench_add_rem_small)
+    {
+        constexpr uint32_t sample_size = 64;
+        constexpr uint32_t nthreads = 1;
+        constexpr uint32_t niterations = 25000;
+
+        BenchBox tb;
+        tb.run(AddRemoveTestGeneratorBucketed, sample_size, nthreads, niterations);
+    }
+
+    TEST(TreeTest, bench_add_rem_medium)
+    {
+        constexpr uint32_t sample_size = 1024;
+        constexpr uint32_t nthreads = 1;
+        constexpr uint32_t niterations = 10000;
+
+        BenchBox tb;
+        tb.run(AddRemoveTestGeneratorBucketed, sample_size, nthreads, niterations);
+    }
+
+    TEST(TreeTest, bench_add_rem_big)
+    {
+        constexpr uint32_t sample_size = 100000;
+        constexpr uint32_t nthreads = 1;
+        constexpr uint32_t niterations = 250;
+
+        BenchBox tb;
+        tb.run(AddRemoveTestGeneratorBucketed, sample_size, nthreads, niterations);
     }
 
     //--------------------------------------------------------------//

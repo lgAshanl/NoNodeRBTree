@@ -106,6 +106,29 @@ namespace Test
 
     //////////////////////////////////////////////////////////////////
 
+    inline void AddRemoveTestGeneratorBucketed(std::vector<TestCommand>& sample, uint32_t sample_size, uint32_t nbuckets)
+    {
+        // TODO: buckets
+        (void)nbuckets;
+        Rand64 rand;
+
+        uint64_t vector = 0;
+
+        for (uint32_t i = 0; i < sample_size; ++i)
+        {
+            const uint32_t key = rand.get();
+            const uint64_t shift = (uint64_t)1 << key;
+
+            const bool is_in_map = (vector & shift);
+
+            sample[i] = {key, !is_in_map};
+
+            vector ^= shift;
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////
+
     inline void AddRemoveTestGenerator(std::vector<TestCommand>& sample, uint32_t sample_size)
     {
         Rand64 rand;
